@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- App Theme Colors (lib/utils/app_colors.dart) -->
+    <!-- Primary Green: #008C45, Secondary Red: #CD212A, Gold: #FFB703 -->
+
+    <!-- Background: Deep Italian Verde (#008C45 to #006830) -->
+    <linearGradient id="bgGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#009B4D"/>
+      <stop offset="60%" stop-color="#008C45"/>
+      <stop offset="100%" stop-color="#005A2B"/>
+    </linearGradient>
+
+    <!-- Baked Golden Crust (#FFB703) -->
+    <linearGradient id="crustGold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFCA28"/>
+      <stop offset="100%" stop-color="#FFB703"/>
+    </linearGradient>
+
+    <!-- San Marzano Red Pepperoni (#CD212A) -->
+    <linearGradient id="pepperoniRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E53935"/>
+      <stop offset="100%" stop-color="#CD212A"/>
+    </linearGradient>
+
+    <!-- Squircle Clip Path -->
+    <clipPath id="squircleClip">
+      <rect width="1024" height="1024" rx="236" ry="236"/>
+    </clipPath>
+
+    <!-- 45-Degree Flat Long Shadow -->
+    <linearGradient id="longShadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.12"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 1. Background Squircle -->
+  <g clip-path="url(#squircleClip)">
+    <rect width="1024" height="1024" fill="url(#bgGreen)"/>
+
+    <!-- Subtle Inner Rim -->
+    <rect x="14" y="14" width="996" height="996" rx="226" ry="226" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-opacity="0.18"/>
+
+    <!-- 2. 45-Degree Diagonal Long Shadow (Projects from slice edges) -->
+    <polygon points="
+      698,395
+      1024,721
+      1024,1024
+      722,1024
+      449,751
+      573,573
+    " fill="url(#longShadow)"/>
+
+    <!-- 3. Minimalist Flat Pizza Slice (Custom Mario Artisan Pizza) -->
+    <g transform="translate(512, 512) rotate(58)">
+      
+      <!-- Slice Body (Mozzarella White with smooth rounded corners) -->
+      <path d="
+        M 0 -220
+        C 14 -220, 24 -208, 30 -195
+        L 165 155
+        C 172 172, 160 190, 142 190
+        Q 0 222, -142 190
+        C -160 190, -172 172, -165 155
+        L -30 -195
+        C -24 -208, -14 -220, 0 -220
+        Z
+      " fill="#FFFFFF"/>
+
+      <!-- Golden Crust Arc (Parmigiano Gold #FFB703) -->
+      <path d="
+        M -162 148
+        C -170 168, -160 190, -142 190
+        Q 0 222, 142 190
+        C 160 190, 170 168, 162 148
+        Q 0 174, -162 148
+        Z
+      " fill="url(#crustGold)"/>
+
+      <!-- Delicate Sauce Wave Line (San Marzano Red #CD212A) -->
+      <path d="
+        M -136 142
+        Q -68 124, 0 142
+        Q 68 160, 136 142
+      " fill="none" stroke="#CD212A" stroke-width="12" stroke-linecap="round"/>
+
+      <!-- Pepperoni 1 (Large - Center-Left) -->
+      <circle cx="-32" cy="45" r="42" fill="url(#pepperoniRed)"/>
+      <circle cx="-38" cy="38" r="8" fill="#FFFFFF" opacity="0.3"/>
+
+      <!-- Pepperoni 2 (Medium - Upper-Right) -->
+      <circle cx="48" cy="-35" r="32" fill="url(#pepperoniRed)"/>
+      <circle cx="43" cy="-40" r="6" fill="#FFFFFF" opacity="0.3"/>
+
+      <!-- Pepperoni 3 (Medium - Lower-Right) -->
+      <circle cx="48" cy="85" r="30" fill="url(#pepperoniRed)"/>
+      <circle cx="43" cy="80" r="5.5" fill="#FFFFFF" opacity="0.3"/>
+
+      <!-- Pepperoni 4 (Small - Near Tip) -->
+      <circle cx="2" cy="-125" r="20" fill="url(#pepperoniRed)"/>
+      <circle cx="-1" cy="-128" r="4" fill="#FFFFFF" opacity="0.3"/>
+
+      <!-- Fresh Genovese Basil Leaves (App Green #008C45) -->
+      <!-- Basil Leaf 1 (Top Left of Center Pepperoni) -->
+      <g transform="translate(-45, -40) rotate(-30)">
+        <path d="M 0 0 C 24 -24, 42 4, 38 28 C 14 32, -4 14, 0 0 Z" fill="#008C45"/>
+        <path d="M 4 2 Q 20 13 34 25" fill="none" stroke="#10B981" stroke-width="2.5"/>
+      </g>
+
+      <!-- Basil Leaf 2 (Near Right Pepperoni) -->
+      <g transform="translate(15, 18) rotate(45)">
+        <path d="M 0 0 C 18 -18, 32 3, 28 20 C 10 24, -3 10, 0 0 Z" fill="#008C45"/>
+        <path d="M 3 2 Q 15 10 25 18" fill="none" stroke="#10B981" stroke-width="2"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+[
+  {
+    "uid": "usr_sanaa_001",
+    "email": "demo@mario.com",
+    "password": "Password123",
+    "displayName": "Mohammed Babaqi",
+    "defaultAddress": "Hadda St, Sanaa, Yemen",
+    "phone": "+967 777 123 456"
+  },
+  {
+    "uid": "usr_sanaa_002",
+    "email": "chef@mario.com",
+    "password": "Password123",
+    "displayName": "Chef Mario Sanaa",
+    "defaultAddress": "Al-Zubairi St, Sanaa, Yemen",
+    "phone": "+967 771 987 654"
+  },
+  {
+    "uid": "usr_sanaa_003",
+    "email": "yemen@pizza.com",
+    "password": "Password123",
+    "displayName": "Yemen Pizza Lover",
+    "defaultAddress": "Baghdad St, Sanaa, Yemen",
+    "phone": "+967 773 555 777"
+  }
+]
