@@ -1,0 +1,76 @@
+name: Mario Pizza CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1. FLUTTER FRONTEND PIPELINE
+  # ─────────────────────────────────────────────────────────────
+  flutter-ci:
+    name: Flutter Analyze, Test & Web Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🎯 Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: 📋 Print Flutter Version
+        run: flutter --version
+
+      - name: 📦 Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: 🔍 Static Code Analysis (flutter analyze)
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      - name: 🧪 Run Automated Tests (flutter test)
+        run: flutter test --coverage
+
+      - name: 🌐 Build Flutter Web Bundle
+        run: flutter build web --release
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. GO BACKEND PIPELINE
+  # ─────────────────────────────────────────────────────────────
+  backend-ci:
+    name: Go Backend Vet & Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 📋 Print Go Version
+        run: go version
+
+      - name: 🔍 Run Go Vet
+        run: go vet ./...
+
+      - name: 🔨 Compile Backend Binary
+        run: go build -v -o mario-pizza-server .
