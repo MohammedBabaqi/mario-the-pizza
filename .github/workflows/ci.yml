@@ -1,18 +1,23 @@
-name: Mario Pizza CI/CD
+name: Mario Pizza CI/CD & APK Release
 
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # 1. FLUTTER FRONTEND PIPELINE
+  # 1. FLUTTER FRONTEND & APK RELEASE PIPELINE
   # ─────────────────────────────────────────────────────────────
   flutter-ci:
-    name: Flutter Analyze, Test & Web Build
+    name: Flutter Analyze, Test & APK Release
     runs-on: ubuntu-latest
 
     steps:
@@ -34,7 +39,7 @@ jobs:
       - name: 📋 Print Flutter Version
         run: flutter --version
 
-      - name: 📦 Install Flutter Dependencies
+      - name: 📦 Install Dependencies
         run: flutter pub get
 
       - name: 🔍 Static Code Analysis (flutter analyze)
@@ -45,6 +50,44 @@ jobs:
 
       - name: 🌐 Build Flutter Web Bundle
         run: flutter build web --release
+
+      - name: 📱 Build Android Release APK
+        run: flutter build apk --release
+
+      - name: 🏷️ Rename APK for Release
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mario-pizza.apk
+
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mario-pizza-apk
+          path: build/app/outputs/flutter-apk/mario-pizza.apk
+          if-no-files-found: error
+
+      - name: 🚀 Publish GitHub Release with APK
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && format('Mario Pizza {0}', github.ref_name) || format('Mario Pizza Release v1.0.{0} 🍕', github.run_number) }}
+          body: |
+            ## 🍕 Mario Pizza — Android APK Release 🇮🇹
+
+            ### 📱 Download & Install:
+            Download the **`mario-pizza.apk`** asset below to install and run the app directly on your Android phone!
+
+            ### ✨ What's included:
+            * ✅ Full FrontEnd (AppBar, Drawer, NavigationBar, Auth, ListView, GridView, Card, Clippers)
+            * ✅ Full BackEnd (Go REST API on `:8080`, SQLite offline CRUD, SharedPreferences)
+            * ✅ Free interactive OpenStreetMap GPS picker & live Nominatim geocoding
+            * ✅ Authentic Italian Tricolore theme & custom flat app icon
+            * ✅ 0 analyzer warnings & all automated tests verified passing
+          files: build/app/outputs/flutter-apk/mario-pizza.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ─────────────────────────────────────────────────────────────
   # 2. GO BACKEND PIPELINE
