@@ -108,7 +108,7 @@ The Go API creates its tables and inserts the initial pizzas and demo accounts a
 
 ### 2. Run the Go Backend API
 
-Open PowerShell in the project and set the connection information for that terminal session. Replace `YOUR_POSTGRES_PASSWORD` with the password selected during PostgreSQL installation:
+The project reads local settings automatically from `backend/.env`. Alternatively, you can set them for one PowerShell session before starting the server:
 
 ```powershell
 cd backend
@@ -117,7 +117,7 @@ $env:JWT_SECRET = "change-this-demo-secret-to-at-least-32-characters"
 go run .
 ```
 
-`backend/.env.example` is a reference only; Go does not load it automatically. Do not commit a real password or JWT secret. The API stops with a clear error if PostgreSQL or either required environment value is unavailable.
+`backend/.env.example` is the safe template. The real `backend/.env` is ignored by Git and must never be committed. System environment variables take priority over values from that file. The API stops with a clear error if PostgreSQL or either required environment value is unavailable.
 
 The server will start on `http://localhost:8080` with endpoints:
 * `GET /api/pizzas` — List all pizzas

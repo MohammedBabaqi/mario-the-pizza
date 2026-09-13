@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"mario-backend/database"
 	"mario-backend/handlers"
 	"mario-backend/middleware"
@@ -61,6 +63,9 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
+	// Load backend/.env for local development. Existing system variables win.
+	_ = godotenv.Load()
+
 	if err := middleware.ConfigureJWTSecret(os.Getenv("JWT_SECRET")); err != nil {
 		log.Fatal(err)
 	}
