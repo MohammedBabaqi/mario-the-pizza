@@ -6,26 +6,26 @@ import "time"
 type OrderStatus string
 
 const (
-	OrderConfirmed     OrderStatus = "confirmed"
-	OrderPreparing     OrderStatus = "preparing"
-	OrderBaking        OrderStatus = "baking"
+	OrderConfirmed      OrderStatus = "confirmed"
+	OrderPreparing      OrderStatus = "preparing"
+	OrderBaking         OrderStatus = "baking"
 	OrderOutForDelivery OrderStatus = "outForDelivery"
-	OrderDelivered     OrderStatus = "delivered"
+	OrderDelivered      OrderStatus = "delivered"
 )
 
 // OrderItem represents a single item in an order.
 type OrderItem struct {
-	ID             string   `json:"id"`
-	PizzaID        string   `json:"pizzaId"`
-	PizzaName      string   `json:"pizzaName"`
-	PizzaImageURL  string   `json:"pizzaImageUrl"`
-	PizzaPrice     float64  `json:"pizzaPrice"`
-	Quantity       int      `json:"quantity"`
-	Size           string   `json:"size"`
-	Crust          string   `json:"crust"`
-	Sauce          string   `json:"sauce"`
-	ExtraToppings  []string `json:"extraToppings"`
-	ItemTotal      float64  `json:"itemTotal"`
+	ID            string   `json:"id"`
+	PizzaID       string   `json:"pizzaId"`
+	PizzaName     string   `json:"pizzaName"`
+	PizzaImageURL string   `json:"pizzaImageUrl"`
+	PizzaPrice    float64  `json:"pizzaPrice"`
+	Quantity      int      `json:"quantity"`
+	Size          string   `json:"size"`
+	Crust         string   `json:"crust"`
+	Sauce         string   `json:"sauce"`
+	ExtraToppings []string `json:"extraToppings"`
+	ItemTotal     float64  `json:"itemTotal"`
 }
 
 // Order represents a placed order.

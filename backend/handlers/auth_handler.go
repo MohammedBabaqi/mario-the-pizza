@@ -1,179 +1,158 @@
 package handlers
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
-	"sync"
-	"time"
+	"net/mail"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 
 	"mario-backend/middleware"
 	"mario-backend/models"
 )
 
-// AuthHandler manages user registration and authentication.
 type AuthHandler struct {
-	mu    sync.RWMutex
-	users map[string]models.User // keyed by email
+	db *pgxpool.Pool
 }
 
-// NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler() *AuthHandler {
-	h := &AuthHandler{
-		users: make(map[string]models.User),
-	}
-	// Seed demo users for instant login testing
-	h.users["mario@pizza.com"] = models.User{
-		UID:          "user_demo_mario",
-		Email:        "mario@pizza.com",
-		DisplayName:  "Mario Rossi",
-		CreatedAt:    time.Now(),
-		PasswordHash: hashPassword("pizza123"),
-	}
-	h.users["m@gmail.com"] = models.User{
-		UID:          "user_m",
-		Email:        "m@gmail.com",
-		DisplayName:  "Mohammed Babaqi",
-		CreatedAt:    time.Now(),
-		PasswordHash: hashPassword("123456"),
-	}
-	h.users["user@example.com"] = models.User{
-		UID:          "user_2",
-		Email:        "user@example.com",
-		DisplayName:  "Mohammed Babaqi",
-		CreatedAt:    time.Now(),
-		PasswordHash: hashPassword("123456"),
-	}
-	h.users["demo@mario.com"] = models.User{
-		UID:          "user_1",
-		Email:        "demo@mario.com",
-		DisplayName:  "Mario Chef",
-		CreatedAt:    time.Now(),
-		PasswordHash: hashPassword("123456"),
-	}
-	return h
+func NewAuthHandler(db *pgxpool.Pool) *AuthHandler {
+	return &AuthHandler{db: db}
 }
 
-func hashPassword(password string) string {
-	h := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(h[:])
-}
-
-// SignUp handles POST /api/auth/signup
 func (h *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	var req models.SignUpRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"Invalid request body"}`, http.StatusBadRequest)
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Name = strings.TrimSpace(req.Name)
+	address, err := mail.ParseAddress(req.Email)
+	if err != nil || !strings.EqualFold(address.Address, req.Email) {
+		writeError(w, http.StatusBadRequest, "A valid email is required")
+		return
+	}
+	if req.Name == "" || len(req.Name) > 100 {
+		writeError(w, http.StatusBadRequest, "Name is required and must be at most 100 characters")
+		return
+	}
+	if len(req.Password) < 6 || len(req.Password) > 72 {
+		writeError(w, http.StatusBadRequest, "Password must be between 6 and 72 characters")
 		return
 	}
 
-	if req.Email == "" || req.Password == "" || req.Name == "" {
-		http.Error(w, `{"error":"Email, password, and name are required"}`, http.StatusBadRequest)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to secure password")
+		return
+	}
+	uid, err := randomID("user_")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
 
-	if len(req.Password) < 6 {
-		http.Error(w, `{"error":"Password must be at least 6 characters"}`, http.StatusBadRequest)
+	user := models.User{UID: uid, Email: req.Email, DisplayName: req.Name}
+	err = h.db.QueryRow(r.Context(), `
+		INSERT INTO users (uid, email, display_name, password_hash)
+		VALUES ($1, $2, $3, $4)
+		RETURNING created_at`, uid, req.Email, req.Name, string(passwordHash)).Scan(&user.CreatedAt)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			writeError(w, http.StatusConflict, "Email already registered")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if _, exists := h.users[req.Email]; exists {
-		http.Error(w, `{"error":"Email already registered"}`, http.StatusConflict)
-		return
-	}
-
-	uid := fmt.Sprintf("user_%d", time.Now().UnixNano())
-	user := models.User{
-		UID:          uid,
-		Email:        req.Email,
-		DisplayName:  req.Name,
-		CreatedAt:    time.Now(),
-		PasswordHash: hashPassword(req.Password),
-	}
-	h.users[req.Email] = user
 
 	token, err := middleware.GenerateToken(uid)
 	if err != nil {
-		http.Error(w, `{"error":"Failed to generate token"}`, http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-
-	resp := models.AuthResponse{
-		Token: token,
-		User:  user,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, http.StatusCreated, models.AuthResponse{Token: token, User: user})
 }
 
-// SignIn handles POST /api/auth/signin
 func (h *AuthHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	var req models.SignInRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"Invalid request body"}`, http.StatusBadRequest)
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	h.mu.RLock()
-	user, exists := h.users[req.Email]
-	h.mu.RUnlock()
-
-	if !exists || user.PasswordHash != hashPassword(req.Password) {
-		http.Error(w, `{"error":"Invalid email or password"}`, http.StatusUnauthorized)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	var user models.User
+	err := h.db.QueryRow(r.Context(), `
+		SELECT uid, email, display_name, photo_url, created_at, phone_number,
+		       default_address, password_hash
+		FROM users WHERE LOWER(email) = $1`, email).Scan(
+		&user.UID, &user.Email, &user.DisplayName, &user.PhotoURL, &user.CreatedAt,
+		&user.PhoneNumber, &user.Address, &user.PasswordHash,
+	)
+	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
+		writeError(w, http.StatusUnauthorized, "Invalid email or password")
 		return
 	}
 
 	token, err := middleware.GenerateToken(user.UID)
 	if err != nil {
-		http.Error(w, `{"error":"Failed to generate token"}`, http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-
-	resp := models.AuthResponse{
-		Token: token,
-		User:  user,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, http.StatusOK, models.AuthResponse{Token: token, User: user})
 }
 
-// Me handles GET /api/auth/me (requires auth middleware)
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	userID := r.Context().Value(middleware.UserIDKey).(string)
-
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	for _, user := range h.users {
-		if user.UID == userID {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(user)
-			return
-		}
+	var user models.User
+	err := h.db.QueryRow(r.Context(), `
+		SELECT uid, email, display_name, photo_url, created_at, phone_number,
+		       default_address, password_hash
+		FROM users WHERE uid = $1`, userID).Scan(
+		&user.UID, &user.Email, &user.DisplayName, &user.PhotoURL, &user.CreatedAt,
+		&user.PhoneNumber, &user.Address, &user.PasswordHash,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "User not found")
+		return
 	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load user")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
 
-	http.Error(w, `{"error":"User not found"}`, http.StatusNotFound)
+func randomID(prefix string) (string, error) {
+	bytes := make([]byte, 12)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return prefix + hex.EncodeToString(bytes), nil
 }

@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"mario-backend/database"
 	"mario-backend/handlers"
 	"mario-backend/middleware"
 )
@@ -58,10 +61,27 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	// Initialize handlers
-	authHandler := handlers.NewAuthHandler()
-	pizzaHandler := handlers.NewPizzaHandler()
-	orderHandler := handlers.NewOrderHandler()
+	if err := middleware.ConfigureJWTSecret(os.Getenv("JWT_SECRET")); err != nil {
+		log.Fatal(err)
+	}
+
+	startupContext, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	db, err := database.Open(startupContext)
+	if err != nil {
+		log.Fatalf("Database connection failed: %v", err)
+	}
+	defer db.Close()
+	if err := database.Migrate(startupContext, db); err != nil {
+		log.Fatalf("Database migration failed: %v", err)
+	}
+	if err := database.Seed(startupContext, db); err != nil {
+		log.Fatalf("Database seed failed: %v", err)
+	}
+
+	authHandler := handlers.NewAuthHandler(db)
+	pizzaHandler := handlers.NewPizzaHandler(db)
+	orderHandler := handlers.NewOrderHandler(db)
 
 	// ──────────────────────────────────────────────────────────
 	// ROUTES
@@ -113,15 +133,30 @@ func main() {
 
 	// Health check
 	mux.HandleFunc("/api/health", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"ok","service":"mario-pizza-api"}`)
+		pingContext, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := db.Ping(pingContext); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"error","service":"mario-pizza-api","database":"unavailable"}`)
+			return
+		}
+		fmt.Fprint(w, `{"status":"ok","service":"mario-pizza-api","database":"postgresql"}`)
 	}))
 
 	// ──────────────────────────────────────────────────────────
 	// START SERVER
 	// ──────────────────────────────────────────────────────────
 
-	port := ":8080"
+	portNumber := strings.TrimSpace(os.Getenv("PORT"))
+	if portNumber == "" {
+		portNumber = "8080"
+	}
+	port := ":" + portNumber
 	log.Printf("🍕 MARIO Pizza API running on http://localhost%s", port)
 	log.Printf("📋 Endpoints:")
 	log.Printf("   POST /api/auth/signup")
@@ -138,8 +173,15 @@ func main() {
 
 	log.Printf("🚀 Server ready! Listening for incoming requests...")
 
-	loggedMux := requestLoggingMiddleware(mux)
-	if err := http.ListenAndServe(port, loggedMux); err != nil {
+	server := &http.Server{
+		Addr:              port,
+		Handler:           requestLoggingMiddleware(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

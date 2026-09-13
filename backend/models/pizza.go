@@ -28,10 +28,10 @@ type Category struct {
 
 // Ingredient represents a customization ingredient.
 type Ingredient struct {
-	ID               string  `json:"id"`
-	Name             string  `json:"name"`
-	Type             string  `json:"type"`
-	PriceModifier    float64 `json:"priceModifier"`
-	CalorieModifier  int     `json:"calorieModifier"`
-	Emoji            string  `json:"emoji"`
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Type            string  `json:"type"`
+	PriceModifier   float64 `json:"priceModifier"`
+	CalorieModifier int     `json:"calorieModifier"`
+	Emoji           string  `json:"emoji"`
 }

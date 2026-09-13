@@ -2,24 +2,26 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mario-backend/data"
 	"mario-backend/models"
 )
 
-// PizzaHandler serves pizza menu data.
 type PizzaHandler struct {
-	pizzas      []models.Pizza
+	db          *pgxpool.Pool
 	categories  []models.Category
 	ingredients []models.Ingredient
 }
 
-// NewPizzaHandler creates a handler with seeded data.
-func NewPizzaHandler() *PizzaHandler {
+func NewPizzaHandler(db *pgxpool.Pool) *PizzaHandler {
 	return &PizzaHandler{
-		pizzas:      data.SeedPizzas(),
+		db:          db,
 		categories:  data.SeedCategories(),
 		ingredients: data.SeedIngredients(),
 	}
@@ -29,31 +31,48 @@ func NewPizzaHandler() *PizzaHandler {
 // Supports optional ?category=xxx query parameter.
 func (h *PizzaHandler) GetPizzas(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	category := r.URL.Query().Get("category")
-
-	var result []models.Pizza
-	if category == "" || category == "all" {
-		result = h.pizzas
-	} else {
-		for _, p := range h.pizzas {
-			if strings.EqualFold(p.Category, category) {
-				result = append(result, p)
-			}
-		}
+	category := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("category")))
+	query := `SELECT id, name, description, price, rating, calories, protein, fat,
+	                 carbs, ingredients, category, image_url, is_popular, is_recommended
+	          FROM pizzas`
+	args := []any{}
+	if category != "" && category != "all" {
+		query += " WHERE LOWER(category) = $1"
+		args = append(args, category)
 	}
+	query += " ORDER BY name"
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	rows, err := h.db.Query(r.Context(), query, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load pizzas")
+		return
+	}
+	defer rows.Close()
+
+	result := make([]models.Pizza, 0)
+	for rows.Next() {
+		pizza, err := scanPizza(rows)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to read pizza data")
+			return
+		}
+		result = append(result, pizza)
+	}
+	if rows.Err() != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load pizzas")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 // GetPizzaByID handles GET /api/pizzas/{id}
 func (h *PizzaHandler) GetPizzaByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -61,35 +80,64 @@ func (h *PizzaHandler) GetPizzaByID(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/pizzas/"), "/")
 	id := parts[0]
 
-	for _, p := range h.pizzas {
-		if p.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(p)
-			return
-		}
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "Pizza id is required")
+		return
 	}
 
-	http.Error(w, `{"error":"Pizza not found"}`, http.StatusNotFound)
+	row := h.db.QueryRow(r.Context(), `
+		SELECT id, name, description, price, rating, calories, protein, fat,
+		       carbs, ingredients, category, image_url, is_popular, is_recommended
+		FROM pizzas WHERE id = $1`, id)
+	pizza, err := scanPizza(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "Pizza not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load pizza")
+		return
+	}
+	writeJSON(w, http.StatusOK, pizza)
 }
 
 // GetCategories handles GET /api/pizzas/categories
 func (h *PizzaHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(h.categories)
+	writeJSON(w, http.StatusOK, h.categories)
 }
 
 // GetIngredients handles GET /api/pizzas/ingredients
 func (h *PizzaHandler) GetIngredients(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(h.ingredients)
+	writeJSON(w, http.StatusOK, h.ingredients)
+}
+
+type pizzaScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanPizza(scanner pizzaScanner) (models.Pizza, error) {
+	var pizza models.Pizza
+	var ingredientsJSON []byte
+	err := scanner.Scan(
+		&pizza.ID, &pizza.Name, &pizza.Description, &pizza.Price, &pizza.Rating,
+		&pizza.Calories, &pizza.Protein, &pizza.Fat, &pizza.Carbs, &ingredientsJSON,
+		&pizza.Category, &pizza.ImageURL, &pizza.IsPopular, &pizza.IsRecommended,
+	)
+	if err != nil {
+		return pizza, err
+	}
+	if err := json.Unmarshal(ingredientsJSON, &pizza.Ingredients); err != nil {
+		return pizza, err
+	}
+	return pizza, nil
 }
