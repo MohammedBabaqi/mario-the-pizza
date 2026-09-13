@@ -14,6 +14,13 @@ import 'package:mario/viewmodels/customization_viewmodel.dart';
 import 'package:mario/views/location_picker_screen.dart';
 import 'package:mario/widgets/bottom_nav.dart';
 
+class _OfflineApiService extends ApiService {
+  @override
+  Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
+    throw Exception('network unavailable');
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -67,6 +74,14 @@ void main() {
     // Should NOT create duplicate row; should merge into 1 item with quantity 3
     expect(cart.items.length, 1);
     expect(cart.items.first.quantity, 3);
+  });
+
+  test('Quick-add defaults to the advertised base price', () {
+    const pizza = PizzaModel.craftYourOwn;
+    const item = CartItemModel(id: 'quick_add', pizza: pizza);
+
+    expect(item.size, PizzaSize.small);
+    expect(item.itemTotal, pizza.price);
   });
 
   test('CustomizationViewModel calculates dynamic ingredient prices and calories', () {
@@ -126,6 +141,28 @@ void main() {
 
     // 3. Verify email is remembered for next login
     expect(prefsService.getRememberedEmail(), 'm@gmail.com');
+  });
+
+  test('Offline sign in rejects an incorrect cached demo password', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final prefsService = PrefsService(prefs);
+    final authService = AuthService(
+      _OfflineApiService(),
+      prefsService,
+      LocalDbService(prefsService),
+    );
+
+    await expectLater(
+      authService.signIn(email: 'm@gmail.com', password: 'wrong-password'),
+      throwsA(
+        isA<Exception>().having(
+          (error) => error.toString(),
+          'message',
+          contains('No internet connection'),
+        ),
+      ),
+    );
   });
 
   testWidgets('MarioBottomNav renders Cart tab with badge and no Profile tab', (WidgetTester tester) async {

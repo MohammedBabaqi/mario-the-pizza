@@ -1,18 +1,18 @@
 # 🍕 MARIO — Premium Italian Pizza Delivery App 🇮🇹
 
-> A complete, production-ready artisanal pizza delivery mobile & web application built with **Flutter (MVVM Architecture)**, a high-performance **Go REST API backend**, **SQLite offline storage**, and an interactive **OpenStreetMap GPS delivery picker**.
+> A university demonstration project for an artisanal pizza delivery experience, built with **Flutter (MVVM Architecture)**, a **Go REST API backend**, local storage, and an interactive **OpenStreetMap GPS delivery picker**.
 
 ---
 
 ## 🌟 Overview
 
-**MARIO** is an authentic Italian pizzeria experience crafted with attention to visual design, smooth animations, and solid architectural foundations. It features the official **Il Tricolore** color palette (*Verde Italiano*, *Rosso Pomodoro*, and *Parmigiano Gold*), offline persistence, real-time pizza customization, and full backend synchronization.
+**MARIO** is an academic Flutter application that demonstrates common mobile UI components, MVVM-style separation, API communication, local persistence, authentication, pizza customization, cart checkout, and order tracking. The project is designed for classroom demonstration rather than production deployment.
 
 ---
 
 ## 📑 Project Requirements Compliance (متطلبات المشروع)
 
-This project strictly adheres to and fully implements all academic and technical project specifications:
+The current application demonstrates the following academic requirements:
 
 ### 🎨 FrontEnd Requirements (10 / 10)
 
@@ -21,7 +21,7 @@ This project strictly adheres to and fully implements all academic and technical
 | 1 | **AppBar** | `lib/views/home_screen.dart`<br>`lib/views/cart_screen.dart` | Custom responsive AppBars with dynamic delivery address selector, clear actions, and cart badge counters. |
 | 2 | **Drawer** | `lib/views/app_drawer.dart` | Full Italian-themed navigation drawer featuring Tricolore accents, user account card, categorized sections (Menu, Activity, Settings), and Dark Mode switch. |
 | 3 | **NavigationBar** | `lib/widgets/bottom_nav.dart` | Custom `MarioBottomNav` with active pill indicators, animated icons, and real-time cart badge counter. |
-| 4 | **Login & SignUp** | `lib/views/sign_in_screen.dart`<br>`lib/views/sign_up_screen.dart` | Complete authentication flow with input validation, "Remember Me" credentials, demo login buttons, and SQLite user persistence. |
+| 4 | **Login & SignUp** | `lib/views/sign_in_screen.dart`<br>`lib/views/sign_up_screen.dart` | Authentication through the Go API, remembered email/session data, built-in offline demo accounts, and locally cached user profiles. |
 | 5 | **ListView** | `lib/views/home_screen.dart`<br>`lib/views/cart_screen.dart` | Horizontal category list, pizza recommendations, and vertical `ListView.separated` for cart items and order histories. |
 | 6 | **GridView** | `lib/views/search_screen.dart`<br>`lib/views/favorites_screen.dart` | 2-column responsive `GridView.builder` (`childAspectRatio: 0.72`) rendering pizza cards with quick-add actions. |
 | 7 | **Card** | `lib/widgets/pizza_card.dart`<br>`lib/views/checkout_screen.dart` | Reusable `PizzaCard` with elevation and corner radii, plus cards for Delivery Address, Payment Methods, and Order Summary. |
@@ -35,7 +35,7 @@ This project strictly adheres to and fully implements all academic and technical
 |---|---|---|---|
 | 1 | **Go REST API** | `backend/main.go` | Lightweight pure Go server on `:8080` handling `/api/pizzas`, `/api/orders`, `/api/auth`, with CORS, JSON serialization, and structured request logging. |
 | 2 | **MVVM Architecture** | `lib/models/`<br>`lib/viewmodels/`<br>`lib/views/`<br>`lib/services/` | Strict separation of concerns: Models represent business data, ViewModels manage reactive state via `ChangeNotifier`, Views handle UI, and Services abstract network & storage. |
-| 3 | **LocalStorage** | `lib/services/local_db_service.dart`<br>`lib/services/prefs_service.dart` | **SQLite** (`sqflite`): Full offline CRUD database for pizzas, users, and orders with live management in `DatabaseScreen`.<br>**SharedPreferences**: Persists theme mode, auth tokens, search queries, and remembered login email. |
+| 3 | **LocalStorage** | `lib/services/local_db_service.dart`<br>`lib/services/prefs_service.dart` | **SQLite** (`sqflite`) stores pizzas and users on supported native platforms. **SharedPreferences** stores theme, session data, favorites, search history, remembered email, and browser fallback data. Orders are held by the running Go server and are not written to SQLite. |
 
 ---
 
@@ -43,9 +43,9 @@ This project strictly adheres to and fully implements all academic and technical
 
 * 📍 **Free OpenStreetMap & GPS Delivery Picker**: Interactive map using `flutter_map` and device GPS (`geolocator`) with live Nominatim reverse geocoding to resolve street names without paid Google Maps APIs.
 * 🍕 **Real-time Pizza Customizer**: Interactive size selection (Small, Medium, Large), crust choices (Classic, Thin, Cheese Stuffed, Gluten-Free), and live ingredient pricing calculation.
-* 🛒 **Smart Cart & Orders**: Merges duplicate pizza configurations, tracks item counts, supports promotional coupons (`MARIO20`), and persists orders locally and to the Go backend.
+* 🛒 **Cart & Orders**: Merges identical pizza configurations, tracks quantities, validates checkout details, sends orders to the Go API, and displays order history and tracking screens. Server order data resets when the Go server restarts.
 * 🌓 **Adaptive Theme System**: Supports Light Mode, Dark Mode, and Italian Tricolore Theme with persistent preferences.
-* 🛡️ **Production-Ready Permissions**:
+* 🛡️ **Platform Permissions**:
   * Android: `INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`.
   * iOS: `NSLocationWhenInUseUsageDescription`.
 * 📱 **Custom Flat App Icon**: Artisanal flat-design pizza icon with a 45° long shadow rendered across all Android mipmaps, iOS AppIconset, and Web icons.
@@ -69,7 +69,7 @@ pizza/
 ├── ios/                        # iOS native project & Info.plist permissions
 ├── lib/                        # Flutter Application Source
 │   ├── models/                 # Pizza, CartItem, Order, User, Ingredient models
-│   ├── services/               # ApiService, LocalDbService (SQLite), PrefsService, AuthService
+│   ├── services/               # API, authentication, SQLite/native, and preferences/browser storage
 │   ├── utils/                  # AppColors, AppTheme, AppTypography, Navigation, Constants
 │   ├── viewmodels/             # AuthVM, CartVM, PizzaVM, OrderVM, ThemeVM, CustomizationVM
 │   ├── views/                  # UI screens (Home, Details, Cart, Checkout, Auth, Map, etc.)
@@ -86,8 +86,8 @@ pizza/
 ## 🛠️ Setup & Running Instructions
 
 ### Prerequisites
-* [Flutter SDK](https://flutter.dev/docs/get-started/install) (v3.29+ / Dart 3.12+)
-* [Go](https://go.dev/dl/) (v1.20+)
+* A Flutter release that includes Dart 3.12.2 or newer (verified locally with Flutter 3.44.4)
+* [Go](https://go.dev/dl/) 1.21 or newer
 
 ### 1. Run the Go Backend API
 Open a terminal and start the Go server:
@@ -117,8 +117,37 @@ flutter run -d chrome
 flutter run
 ```
 
+The default backend addresses are:
+
+* Web, Windows, and iOS simulator: `http://localhost:8080/api`
+* Android Emulator: `http://10.0.2.2:8080/api`
+
+For a physical phone, replace the API host in `lib/services/api_service.dart` with the computer's local-network IP address and keep both devices on the same network.
+
 ### 3. One-Click Launcher (Windows)
-You can also double-click [start.bat](file:///c:/Users/Mohammed%20Babaqi/Desktop/flutter%20projects/pizza/start.bat) to launch both the Go backend and Flutter app simultaneously.
+Double-click `start.bat` to start the Go backend and launch the Flutter web app in Chrome.
+
+### 4. What works without internet?
+
+* The application tries the Go API first.
+* If pizza requests fail, it loads the cached/default pizza list from SQLite on native platforms or SharedPreferences/browser storage on Web.
+* The remembered email, cached user profile, authentication token, theme, favorites, and search history are stored locally.
+* If a remembered session exists, the application can restore the cached user when the backend is unavailable.
+* After signing out, offline sign-in is limited to the built-in demo accounts; incorrect passwords are rejected.
+* Cart contents are kept in application memory and disappear when the app process is closed.
+* Creating or loading server orders needs the Go backend. Orders stored by the server disappear when the server restarts.
+* Remote pizza images, OpenStreetMap tiles, and Nominatim address lookup need internet. The UI shows a pizza placeholder when a remote image is unavailable.
+
+### 5. View the local database/storage
+
+Inside the app:
+
+1. Sign in or continue as guest.
+2. Open the menu icon in the top-left corner.
+3. Select **SQLite Database & Data**.
+4. Use the **Pizzas**, **Users**, and storage-information tabs to inspect the current records.
+
+On Android and other supported native platforms, this screen reads the real `mario_pizza.db` SQLite database. On Web, it displays the equivalent browser-persisted data from SharedPreferences; Web does not create a SQLite database file.
 
 ---
 
@@ -128,7 +157,7 @@ Run the automated test suite:
 ```bash
 flutter test
 ```
-* **Status**: `All 7 tests passed!` (Coverage includes CartViewModel logic, CustomizationViewModel pricing, LocalDbService CRUD, LocationPickerScreen rendering, and Auth flows).
+* **Coverage**: Cart behavior and pricing, customization calculations, offline authentication rules, local data CRUD, location-screen rendering, and bottom navigation.
 
 Run static analysis:
 ```bash
@@ -144,7 +173,7 @@ To quickly test the application, you can use either the demo buttons on the Sign
 * **Email**: `m@gmail.com`
 * **Password**: `123456`
 
-*(Or register any new account; it will automatically save to the offline SQLite database and synchronize with the Go backend).*
+When the backend is running, newly registered users are created in the Go server's in-memory user store and cached locally. If the backend is offline, sign-up creates a local profile and keeps the new session on that device, but a signed-out offline user cannot authenticate again unless it is one of the built-in demo accounts.
 
 ---
 

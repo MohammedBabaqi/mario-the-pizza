@@ -49,7 +49,7 @@ class CartItemModel extends Equatable {
     required this.id,
     required this.pizza,
     this.quantity = 1,
-    this.size = PizzaSize.medium,
+    this.size = PizzaSize.small,
     this.crust = CrustType.classic,
     this.sauce = SauceType.tomato,
     this.extraToppings = const [],

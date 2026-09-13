@@ -12,6 +12,13 @@ class AuthService {
 
   AuthService(this._api, this._prefs, this._db);
 
+  static const Map<String, String> _offlineDemoPasswords = {
+    'mario@pizza.com': 'pizza123',
+    'm@gmail.com': '123456',
+    'user@example.com': '123456',
+    'demo@mario.com': '123456',
+  };
+
   /// Sign up a new user. Returns the user and stores token in SharedPref & user in SQLite.
   Future<UserModel> signUp({
     required String email,
@@ -34,6 +41,8 @@ class AuthService {
       await _db.insertUser(user); // Persisted to SQLite
 
       return user;
+    } on ApiException {
+      rethrow;
     } catch (e) {
       // Offline fallback: register locally in SQLite
       final localUser = UserModel(
@@ -57,11 +66,12 @@ class AuthService {
     required String password,
   }) async {
     // Remember email for next login session (Requirement: remember for next login)
-    await _prefs.setRememberedEmail(email.trim());
+    final cleanEmail = email.trim().toLowerCase();
+    await _prefs.setRememberedEmail(cleanEmail);
 
     try {
       final response = await _api.post('/auth/signin', {
-        'email': email.trim(),
+        'email': cleanEmail,
         'password': password,
       });
 
@@ -74,10 +84,17 @@ class AuthService {
       await _db.insertUser(user); // Persisted to SQLite
 
       return user;
+    } on ApiException {
+      // The backend answered, so authentication errors must not be treated as
+      // an offline condition or bypassed through the local cache.
+      rethrow;
     } catch (e) {
-      // Offline / Local database fallback: verify from SQLite
-      final localUser = await _db.getUserByEmail(email.trim());
-      if (localUser != null) {
+      // Offline fallback is intentionally limited to the built-in demo
+      // accounts whose credentials are known locally. Remembered sessions are
+      // restored separately by getCurrentUser().
+      final localUser = await _db.getUserByEmail(cleanEmail);
+      final expectedPassword = _offlineDemoPasswords[cleanEmail];
+      if (localUser != null && expectedPassword == password) {
         final token = 'token_${localUser.uid}';
         _api.setToken(token);
         await _prefs.setAuthToken(token);
@@ -85,32 +102,9 @@ class AuthService {
         return localUser;
       }
 
-      // If password has at least 6 characters and is a valid email, auto-provision and save to SQLite & Prefs
-      if (email.contains('@') && password.length >= 6) {
-        final cleanEmail = email.trim();
-        final rawPrefix = cleanEmail.split('@').first;
-        final displayName = rawPrefix.isNotEmpty
-            ? '${rawPrefix[0].toUpperCase()}${rawPrefix.substring(1)}'
-            : 'User';
-
-        final newUser = UserModel(
-          uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
-          email: cleanEmail,
-          displayName: displayName,
-          phoneNumber: '+966 50 123 4567',
-          defaultAddress: 'King Fahd Road, Apt 4B',
-          createdAt: DateTime.now(),
-        );
-
-        await _db.insertUser(newUser); // Saved in SQLite
-        final token = 'token_${newUser.uid}';
-        _api.setToken(token);
-        await _prefs.setAuthToken(token);
-        await _prefs.setUserJson(newUser.toJson());
-        return newUser;
-      }
-
-      throw Exception('Invalid email or password. Password must be at least 6 characters.');
+      throw Exception(
+        'No internet connection. Use a built-in demo account for offline sign in.',
+      );
     }
   }
 
